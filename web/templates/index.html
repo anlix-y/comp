@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Compressor WebUI</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma-slider@2.0.4/dist/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="has-background-dark has-text-white">
+<section class="section">
+    <div class="container">
+        <h1 class="title has-text-white">Compressor & Converter</h1>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <div class="field">
+                <label class="label has-text-white">Выберите файл или введите ссылку</label>
+                <div class="field has-addons">
+                    <div class="control is-expanded">
+                        <input class="input" type="file" name="file" id="fileInput">
+                    </div>
+                </div>
+                <div class="field mt-2">
+                    <div class="field has-addons">
+                        <div class="control is-expanded">
+                            <input class="input" type="text" name="url" placeholder="https://www.youtube.com/watch?v=..." id="urlInput">
+                        </div>
+                        <div class="control">
+                            <button type="button" class="button is-info" id="infoBtn">Инфо</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="videoMeta" class="notification is-info is-light py-2" style="display: none;">
+                    <p class="is-size-7"><strong>Название:</strong> <span id="metaTitle">-</span></p>
+                    <p class="is-size-7"><strong>Размер:</strong> <span id="metaSize">-</span></p>
+                    <p class="is-size-7"><strong>Формат:</strong> <span id="metaFormat">-</span></p>
+                    <p class="is-size-7"><strong>Битрейт:</strong> <span id="metaBitrate">-</span></p>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="label has-text-white">Тип обработки</label>
+                <div class="control">
+                    <div class="select">
+                        <select name="type" id="processType">
+                            <option value="video_compress">Сжатие видео (H.265)</option>
+                            <option value="video_to_gif">Видео в GIF</option>
+                            <option value="video_to_audio">Видео в MP3</option>
+                            <option value="image_compress">Сжатие изображения</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="videoSettings">
+                <div class="field">
+                    <label class="label has-text-white">Качество (CRF): (чем выше тем хуже, 28-35 норм)</label>
+                    <div class="columns is-mobile is-vcentered">
+                        <div class="column is-narrow">
+                            <input class="input" type="number" id="crfNum" value="28" min="0" max="51" style="width: 80px;">
+                        </div>
+                        <div class="column">
+                            <input class="slider is-fullwidth" type="range" name="crf" id="crfSlider" value="28" min="0" max="51">
+                        </div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label has-text-white">Макс. ширина: (0 - оставить)</label>
+                    <div class="columns is-mobile is-vcentered">
+                        <div class="column is-narrow">
+                            <input class="input" type="number" id="widthNum" value="1280" min="0" max="3840" step="2" style="width: 80px;">
+                        </div>
+                        <div class="column">
+                            <input class="slider is-fullwidth" type="range" name="width" id="widthSlider" value="1280" min="0" max="3840" step="2">
+                        </div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label has-text-white">FPS: (0 - оставить)</label>
+                    <div class="columns is-mobile is-vcentered">
+                        <div class="column is-narrow">
+                            <input class="input" type="number" id="fpsNum" value="30" min="0" max="120" style="width: 80px;">
+                        </div>
+                        <div class="column">
+                            <input class="slider is-fullwidth" type="range" name="fps" id="fpsSlider" value="30" min="0" max="120">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="imageSettings" style="display: none;">
+                <div class="field">
+                    <label class="label has-text-white">Качество: (1-100)</label>
+                    <div class="columns is-mobile is-vcentered">
+                        <div class="column is-narrow">
+                            <input class="input" type="number" id="qualityNum" value="80" min="1" max="100" style="width: 80px;">
+                        </div>
+                        <div class="column">
+                            <input class="slider is-fullwidth" type="range" name="quality" id="qualitySlider" value="80" min="1" max="100">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field mt-4">
+                <div class="control">
+                    <button class="button is-primary" type="submit" id="submitBtn">Загрузить и обработать</button>
+                </div>
+            </div>
+            
+            <div id="progressContainer" style="display: none;" class="mt-4">
+                <progress class="progress is-primary" value="0" max="100" id="progressBar">0%</progress>
+                <p id="statusText" class="has-text-centered">Обработка...</p>
+            </div>
+        </form>
+
+        <script>
+            const typeSelect = document.getElementById('processType');
+            const videoSettings = document.getElementById('videoSettings');
+            const imageSettings = document.getElementById('imageSettings');
+            const form = document.querySelector('form');
+            const submitBtn = document.getElementById('submitBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const infoBtn = document.getElementById('infoBtn');
+            const videoMeta = document.getElementById('videoMeta');
+
+            infoBtn.addEventListener('click', async () => {
+                const url = document.getElementById('urlInput').value;
+                if (!url) return alert('Введите ссылку');
+                
+                infoBtn.classList.add('is-loading');
+                try {
+                    const formData = new FormData();
+                    formData.append('url', url);
+                    const res = await fetch('/info', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        videoMeta.style.display = 'block';
+                        document.getElementById('metaTitle').innerText = data.title || 'N/A';
+                        document.getElementById('metaSize').innerText = (data.filesize || data.filesize_approx) ? (Math.round((data.filesize || data.filesize_approx) / 1024 / 1024) + ' MB') : 'N/A';
+                        document.getElementById('metaFormat').innerText = data.ext || 'N/A';
+                        document.getElementById('metaBitrate').innerText = data.tbr ? (data.tbr + ' kbps') : 'N/A';
+                    }
+                } catch (e) {
+                    alert('Ошибка получения данных');
+                } finally {
+                    infoBtn.classList.remove('is-loading');
+                }
+            });
+
+            typeSelect.addEventListener('change', () => {
+                if (typeSelect.value.startsWith('video')) {
+                    videoSettings.style.display = 'block';
+                    imageSettings.style.display = 'none';
+                } else if (typeSelect.value.startsWith('image')) {
+                    videoSettings.style.display = 'none';
+                    imageSettings.style.display = 'block';
+                }
+            });
+
+            const syncInputs = (sliderId, numId) => {
+                const slider = document.getElementById(sliderId);
+                const num = document.getElementById(numId);
+                slider.addEventListener('input', () => { num.value = slider.value; });
+                num.addEventListener('input', () => { slider.value = num.value; });
+            };
+
+            syncInputs('crfSlider', 'crfNum');
+            syncInputs('widthSlider', 'widthNum');
+            syncInputs('fpsSlider', 'fpsNum');
+            syncInputs('qualitySlider', 'qualityNum');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                submitBtn.classList.add('is-loading');
+                progressContainer.style.display = 'block';
+                document.getElementById('statusText').innerText = 'Запуск задачи...';
+
+                const formData = new FormData(form);
+                try {
+                    const res = await fetch('/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (data.task_id) {
+                        pollStatus(data.task_id);
+                    } else {
+                        alert('Ошибка запуска: ' + (data.error || 'неизвестная ошибка'));
+                        submitBtn.classList.remove('is-loading');
+                    }
+                } catch (e) {
+                    alert('Ошибка сети');
+                    submitBtn.classList.remove('is-loading');
+                }
+            });
+
+            async function pollStatus(taskId) {
+                const interval = setInterval(async () => {
+                    try {
+                        const res = await fetch('/status/' + taskId);
+                        const task = await res.json();
+                        
+                        document.getElementById('statusText').innerText = 'Статус: ' + task.status;
+                        
+                        if (task.status === 'completed') {
+                            clearInterval(interval);
+                            submitBtn.classList.remove('is-loading');
+                            document.getElementById('statusText').innerHTML = `Готово! <a href="/uploads/${task.output_file}" class="has-text-link" target="_blank">Скачать файл</a>`;
+                        } else if (task.status === 'failed') {
+                            clearInterval(interval);
+                            submitBtn.classList.remove('is-loading');
+                            document.getElementById('statusText').innerText = 'Ошибка: ' + task.error;
+                        }
+                    } catch (e) {
+                        console.error('Ошибка опроса', e);
+                    }
+                }, 2000);
+            }
+        </script>
+
+        {{if .output}}
+        <div class="notification is-success mt-4">
+            Файл обработан: <a href="/{{.output}}" class="has-text-white">скачать</a>
+        </div>
+        {{end}}
+    </div>
+</section>
+</body>
+</html>

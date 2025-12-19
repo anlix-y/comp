@@ -1,0 +1,5 @@
+{
+  "proxy": "socks5://127.0.0.1:9050",
+  "cleanup_minutes": 5,
+  "port": 3000
+}
