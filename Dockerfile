@@ -10,9 +10,8 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-# Build the application
-# Note: we build the binary from web/main.go because it's the web server entry point
-RUN go build -o compressor web/main.go
+# Ensure module graph and checksums are up to date, then build
+RUN go mod tidy && go build -o compressor ./cmd/server
 
 # Stage 2: Final image
 FROM alpine:latest

@@ -5,4 +5,15 @@ services:
       - "3000:3000"
     volumes:
       - ./web/uploads:/app/uploads
+    tmpfs:
+      - /tmp/app
+    depends_on:
+      - redis
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "no"]
     restart: always

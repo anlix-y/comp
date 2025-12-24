@@ -1,5 +1,8 @@
 {
-  "proxy": "socks5://127.0.0.1:9050",
   "cleanup_minutes": 5,
-  "port": 3000
+  "port": 3000,
+  "proxy": "",
+  "redis_addr": "redis:6379",
+  "redis_db": 0,
+  "log_level": "info"
 }

@@ -41,7 +41,7 @@
                 <label class="label has-text-white">Тип обработки</label>
                 <div class="control">
                     <div class="select">
-                        <select name="type" id="processType">
+                        <select name="type" id="processType" disabled>
                             <option value="video_compress">Сжатие видео (H.265)</option>
                             <option value="video_to_gif">Видео в GIF</option>
                             <option value="video_to_audio">Видео в MP3</option>
@@ -56,10 +56,10 @@
                     <label class="label has-text-white">Качество (CRF): (чем выше тем хуже, 28-35 норм)</label>
                     <div class="columns is-mobile is-vcentered">
                         <div class="column is-narrow">
-                            <input class="input" type="number" id="crfNum" value="28" min="0" max="51" style="width: 80px;">
+                            <input class="input" type="number" id="crfNum" value="28" min="0" max="51" style="width: 80px;" disabled>
                         </div>
                         <div class="column">
-                            <input class="slider is-fullwidth" type="range" name="crf" id="crfSlider" value="28" min="0" max="51">
+                            <input class="slider is-fullwidth" type="range" name="crf" id="crfSlider" value="28" min="0" max="51" disabled>
                         </div>
                     </div>
                 </div>
@@ -67,10 +67,10 @@
                     <label class="label has-text-white">Макс. ширина: (0 - оставить)</label>
                     <div class="columns is-mobile is-vcentered">
                         <div class="column is-narrow">
-                            <input class="input" type="number" id="widthNum" value="1280" min="0" max="3840" step="2" style="width: 80px;">
+                            <input class="input" type="number" id="widthNum" value="1280" min="0" max="3840" step="2" style="width: 80px;" disabled>
                         </div>
                         <div class="column">
-                            <input class="slider is-fullwidth" type="range" name="width" id="widthSlider" value="1280" min="0" max="3840" step="2">
+                            <input class="slider is-fullwidth" type="range" name="width" id="widthSlider" value="1280" min="0" max="3840" step="2" disabled>
                         </div>
                     </div>
                 </div>
@@ -78,10 +78,10 @@
                     <label class="label has-text-white">FPS: (0 - оставить)</label>
                     <div class="columns is-mobile is-vcentered">
                         <div class="column is-narrow">
-                            <input class="input" type="number" id="fpsNum" value="30" min="0" max="120" style="width: 80px;">
+                            <input class="input" type="number" id="fpsNum" value="30" min="0" max="120" style="width: 80px;" disabled>
                         </div>
                         <div class="column">
-                            <input class="slider is-fullwidth" type="range" name="fps" id="fpsSlider" value="30" min="0" max="120">
+                            <input class="slider is-fullwidth" type="range" name="fps" id="fpsSlider" value="30" min="0" max="120" disabled>
                         </div>
                     </div>
                 </div>
@@ -92,10 +92,21 @@
                     <label class="label has-text-white">Качество: (1-100)</label>
                     <div class="columns is-mobile is-vcentered">
                         <div class="column is-narrow">
-                            <input class="input" type="number" id="qualityNum" value="80" min="1" max="100" style="width: 80px;">
+                            <input class="input" type="number" id="qualityNum" value="80" min="1" max="100" style="width: 80px;" disabled>
                         </div>
                         <div class="column">
-                            <input class="slider is-fullwidth" type="range" name="quality" id="qualitySlider" value="80" min="1" max="100">
+                            <input class="slider is-fullwidth" type="range" name="quality" id="qualitySlider" value="80" min="1" max="100" disabled>
+                        </div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label has-text-white">Формат изображения</label>
+                    <div class="control">
+                        <div class="select">
+                            <select name="img_format" id="imgFormat" disabled>
+                                <option value="jpg">JPG</option>
+                                <option value="png">PNG</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -110,6 +121,7 @@
             <div id="progressContainer" style="display: none;" class="mt-4">
                 <progress class="progress is-primary" value="0" max="100" id="progressBar">0%</progress>
                 <p id="statusText" class="has-text-centered">Обработка...</p>
+                <p id="stageText" class="has-text-centered is-size-7 has-text-grey-light"></p>
             </div>
         </form>
 
@@ -122,33 +134,58 @@
             const progressContainer = document.getElementById('progressContainer');
             const infoBtn = document.getElementById('infoBtn');
             const videoMeta = document.getElementById('videoMeta');
+            const urlInput = document.getElementById('urlInput');
+            const fileInput = document.getElementById('fileInput');
 
-            infoBtn.addEventListener('click', async () => {
-                const url = document.getElementById('urlInput').value;
-                if (!url) return alert('Введите ссылку');
-                
+            function bytesToMB(b) {
+                if (!b || b <= 0) return 'N/A';
+                return (Math.round((b / (1024*1024)) * 10) / 10) + ' MB';
+            }
+
+            function showMeta(obj) {
+                videoMeta.style.display = 'block';
+                document.getElementById('metaTitle').innerText = obj.title || 'N/A';
+                document.getElementById('metaSize').innerText = obj.filesize ? bytesToMB(obj.filesize) : 'N/A';
+                document.getElementById('metaFormat').innerText = obj.format || obj.ext || obj.type || 'N/A';
+                document.getElementById('metaBitrate').innerText = obj.bitrate ? (Math.round(obj.bitrate) + ' kbps') : 'N/A';
+            }
+
+            async function fetchUrlInfoDebounced() {
+                const url = urlInput.value.trim();
+                if (!url) { return; }
                 infoBtn.classList.add('is-loading');
                 try {
-                    const formData = new FormData();
-                    formData.append('url', url);
-                    const res = await fetch('/info', { method: 'POST', body: formData });
+                    const res = await fetch('/info?url=' + encodeURIComponent(url));
                     const data = await res.json();
-                    
-                    if (data.error) {
-                        alert(data.error);
-                    } else {
-                        videoMeta.style.display = 'block';
-                        document.getElementById('metaTitle').innerText = data.title || 'N/A';
-                        document.getElementById('metaSize').innerText = (data.filesize || data.filesize_approx) ? (Math.round((data.filesize || data.filesize_approx) / 1024 / 1024) + ' MB') : 'N/A';
-                        document.getElementById('metaFormat').innerText = data.ext || 'N/A';
-                        document.getElementById('metaBitrate').innerText = data.tbr ? (data.tbr + ' kbps') : 'N/A';
+                    if (!data.error) {
+                        // Normalize fields
+                        showMeta({
+                            title: data.title,
+                            filesize: data.filesize || data.filesize_approx,
+                            format: data.format || data.ext,
+                            bitrate: data.tbr || data.bitrate
+                        });
+                        // URL-источник считаем видео-контентом (yt-dlp)
+                        updateTypeOptions('video');
+                        enableControlsForKind('video');
                     }
                 } catch (e) {
-                    alert('Ошибка получения данных');
+                    // silent fail
                 } finally {
                     infoBtn.classList.remove('is-loading');
                 }
+            }
+
+            // Auto-fetch info when URL is typed (debounced)
+            let urlDebounce;
+            urlInput.addEventListener('input', () => {
+                clearTimeout(urlDebounce);
+                if (!urlInput.value.trim()) { return; }
+                urlDebounce = setTimeout(fetchUrlInfoDebounced, 600);
             });
+
+            // Keep Info button for manual trigger as well
+            infoBtn.addEventListener('click', fetchUrlInfoDebounced);
 
             typeSelect.addEventListener('change', () => {
                 if (typeSelect.value.startsWith('video')) {
@@ -176,20 +213,46 @@
                 e.preventDefault();
                 submitBtn.classList.add('is-loading');
                 progressContainer.style.display = 'block';
-                document.getElementById('statusText').innerText = 'Запуск задачи...';
+                const statusText = document.getElementById('statusText');
+                const stageText = document.getElementById('stageText');
+                const progressBar = document.getElementById('progressBar');
+                statusText.innerText = 'Запуск задачи...';
 
                 const formData = new FormData(form);
+                const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
                 try {
-                    const res = await fetch('/upload', { method: 'POST', body: formData });
-                    const data = await res.json();
-                    if (data.task_id) {
-                        pollStatus(data.task_id);
-                    } else {
-                        alert('Ошибка запуска: ' + (data.error || 'неизвестная ошибка'));
-                        submitBtn.classList.remove('is-loading');
-                    }
+                    await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', '/upload');
+                        xhr.responseType = 'json';
+                        if (hasFile && xhr.upload) {
+                            stageText.innerText = 'Этап: Загрузка';
+                            xhr.upload.onprogress = (ev) => {
+                                if (ev.lengthComputable) {
+                                    const pct = Math.max(0, Math.min(100, Math.round((ev.loaded/ev.total)*100)));
+                                    progressBar.value = pct;
+                                    progressBar.textContent = pct + '%';
+                                    statusText.innerText = 'Загрузка файла • ' + pct + '%';
+                                }
+                            };
+                        } else {
+                            stageText.innerText = 'Подготовка';
+                        }
+                        xhr.onload = () => {
+                            const data = xhr.response || {};
+                            if (xhr.status >= 200 && xhr.status < 300 && data.task_id) {
+                                // Start polling
+                                pollStatus(data.task_id);
+                                resolve();
+                            } else {
+                                reject(new Error(data.error || 'Ошибка запуска'));
+                            }
+                        };
+                        xhr.onerror = () => reject(new Error('Сетевая ошибка'));
+                        xhr.send(formData);
+                    });
                 } catch (e) {
-                    alert('Ошибка сети');
+                    alert(e.message || 'Ошибка');
                     submitBtn.classList.remove('is-loading');
                 }
             });
@@ -200,7 +263,22 @@
                         const res = await fetch('/status/' + taskId);
                         const task = await res.json();
                         
-                        document.getElementById('statusText').innerText = 'Статус: ' + task.status;
+                        const progressBar = document.getElementById('progressBar');
+                        const statusText = document.getElementById('statusText');
+                        const stageText = document.getElementById('stageText');
+
+                        if (typeof task.percent === 'number') {
+                            const pct = Math.max(0, Math.min(100, task.percent));
+                            progressBar.value = pct;
+                            progressBar.textContent = pct + '%';
+                        }
+                        const stageMap = { download: 'Скачивание', transcode: 'Транскодирование', finalize: 'Завершение', init: 'Подготовка' };
+                        stageText.innerText = task.stage ? ('Этап: ' + (stageMap[task.stage] || task.stage)) : '';
+                        const pctShown = (typeof task.percent === 'number') ? Math.max(0, Math.min(100, task.percent)) : null;
+                        const remaining = (pctShown !== null) ? (100 - pctShown) : null;
+                        statusText.innerText = 'Статус: ' + task.status
+                            + (pctShown !== null ? (' • ' + pctShown + '%') : '')
+                            + (remaining !== null ? (' • Осталось: ' + remaining + '%') : '');
                         
                         if (task.status === 'completed') {
                             clearInterval(interval);
@@ -216,6 +294,87 @@
                     }
                 }, 2000);
             }
+
+            // Enable/disable controls until file or URL provided
+            const controls = [
+                document.getElementById('crfNum'),
+                document.getElementById('crfSlider'),
+                document.getElementById('widthNum'),
+                document.getElementById('widthSlider'),
+                document.getElementById('fpsNum'),
+                document.getElementById('fpsSlider'),
+                document.getElementById('qualityNum'),
+                document.getElementById('qualitySlider'),
+                document.getElementById('imgFormat'),
+            ];
+            function updateTypeOptions(kind) {
+                // kind: 'video' | 'image'
+                const opts = Array.from(typeSelect.options);
+                if (kind === 'video') {
+                    opts.forEach(o => {
+                        const isVideo = o.value.startsWith('video');
+                        o.disabled = !isVideo;
+                        o.hidden = !isVideo;
+                    });
+                    if (!typeSelect.value.startsWith('video')) {
+                        typeSelect.value = 'video_compress';
+                        typeSelect.dispatchEvent(new Event('change'));
+                    }
+                } else if (kind === 'image') {
+                    opts.forEach(o => {
+                        const isImage = o.value.startsWith('image');
+                        o.disabled = !isImage;
+                        o.hidden = !isImage;
+                    });
+                    typeSelect.value = 'image_compress';
+                    typeSelect.dispatchEvent(new Event('change'));
+                } else {
+                    // reset (show all)
+                    opts.forEach(o => { o.disabled = false; o.hidden = false; });
+                }
+            }
+            function enableControlsForKind(kind) {
+                const isVideo = kind === 'video';
+                const isImage = kind === 'image';
+                // Enable/disable controls accordingly
+                document.getElementById('crfNum').disabled = !isVideo;
+                document.getElementById('crfSlider').disabled = !isVideo;
+                document.getElementById('widthNum').disabled = !isVideo && !isImage ? true : false; // width used by both
+                document.getElementById('widthSlider').disabled = !isVideo && !isImage ? true : false;
+                document.getElementById('fpsNum').disabled = !isVideo; // fps for video/gif only
+                document.getElementById('fpsSlider').disabled = !isVideo;
+                document.getElementById('qualityNum').disabled = !isImage;
+                document.getElementById('qualitySlider').disabled = !isImage;
+                const imgFmt = document.getElementById('imgFormat');
+                if (imgFmt) imgFmt.disabled = !isImage;
+            }
+            function hasSource() {
+                return (fileInput && fileInput.files && fileInput.files.length > 0) || (urlInput && urlInput.value.trim() !== '');
+            }
+            function updateControlsEnabled() {
+                const enable = hasSource();
+                typeSelect.disabled = !enable;
+                controls.forEach(el => { if (el) el.disabled = !enable; });
+                // Auto-show local file meta
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    const f = fileInput.files[0];
+                    showMeta({ title: f.name, filesize: f.size, type: f.type });
+                    // Determine kind by MIME
+                    if (f.type && f.type.startsWith('image/')) {
+                        updateTypeOptions('image');
+                        enableControlsForKind('image');
+                    } else if (f.type && f.type.startsWith('video/')) {
+                        updateTypeOptions('video');
+                        enableControlsForKind('video');
+                    } else {
+                        updateTypeOptions(null);
+                    }
+                }
+            }
+            fileInput.addEventListener('change', updateControlsEnabled);
+            urlInput.addEventListener('input', updateControlsEnabled);
+            // Initial state
+            updateControlsEnabled();
         </script>
 
         {{if .output}}
