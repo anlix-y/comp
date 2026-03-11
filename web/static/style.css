@@ -1,19 +1,168 @@
-body {
-    background-color: #1a1a1a;
-    color: #ffffff;
+/* Fluent-style dark theme with purple accent */
+:root {
+    --bg: #0f0f10;
+    --surface: #141416;
+    --surface-2: #1b1c1f;
+    --border: #2a2b2f;
+    --text: #e5e7eb;
+    --text-muted: #b4b6be;
+    --accent: #8b5cf6; /* purple accent */
+    --accent-strong: #7c3aed;
+    --accent-contrast: #0b0b0d;
+    --shadow-color: 0 10px 30px rgba(0,0,0,0.35);
 }
 
-input, .button {
-    background-color: #2a2a2a;
-    color: #ffffff;
-    border: none;
+/* Base */
+html, body {
+    background-color: var(--bg);
+    color: var(--text);
 }
 
-input:focus, .button:focus {
-    border: 1px solid #00d1b2;
+/* Typography & links */
+h1, h2, h3, h4, h5, h6, .title, .subtitle, .label {
+    color: var(--text);
 }
 
+a, .has-text-link {
+    color: var(--accent) !important;
+}
+a:hover {
+    color: var(--accent-strong) !important;
+}
+
+/* Containers feel slightly elevated like Fluent surfaces */
+.box, .card, .notification {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-color);
+}
+
+/* Inputs & controls */
+.input, .textarea, .select select {
+    background-color: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: none;
+}
+.input::placeholder, .textarea::placeholder {
+    color: var(--text-muted);
+}
+.input:focus, .textarea:focus, .select select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.35);
+}
+
+/* Buttons */
+.button {
+    background-color: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, color .15s ease;
+}
+.button:hover {
+    background-color: #22232a;
+    border-color: #32343b;
+}
+.button:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.35);
+}
 .button.is-primary {
-    background-color: #00d1b2;
-    color: #1a1a1a;
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+.button.is-primary:hover {
+    background-color: var(--accent-strong);
+    border-color: var(--accent-strong);
+}
+.button.is-primary:focus {
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.45);
+}
+
+/* Select wrapper background consistent with dark */
+.select:not(.is-multiple):not(.is-loading)::after {
+    border-color: var(--text);
+}
+.select select {
+    background-color: var(--surface-2);
+}
+
+/* Slider (bulma-slider) */
+.slider {
+    height: 4px;
+}
+.slider::-webkit-slider-runnable-track {
+    height: 4px;
+    background: #2b2c32;
+    border-radius: 999px;
+}
+.slider::-moz-range-track {
+    height: 4px;
+    background: #2b2c32;
+    border-radius: 999px;
+}
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 16px;
+    width: 16px;
+    margin-top: -6px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid var(--accent-contrast);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+}
+.slider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 5px rgba(139, 92, 246, 0.35);
+}
+.slider::-moz-range-thumb {
+    height: 16px;
+    width: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid var(--accent-contrast);
+}
+
+/* Progress bar */
+.progress {
+    background-color: #26272e;
+    border-radius: 999px;
+}
+.progress::-webkit-progress-value {
+    background-color: var(--accent);
+}
+.progress::-moz-progress-bar {
+    background-color: var(--accent);
+}
+.progress.is-primary {
+    color: #fff;
+    background-color: #26272e;
+}
+
+/* Notifications and info panels */
+.notification.is-info.is-light {
+    background-color: var(--surface);
+    border-left: 3px solid var(--accent);
+}
+
+/* Bulma helpers */
+.has-background-dark { background-color: var(--bg) !important; }
+.has-text-white { color: var(--text) !important; }
+
+/* Labels inside fields should be readable */
+.field .label { color: var(--text); }
+
+/* Horizontal rules and borders */
+hr, .table, .content table, .content table td, .content table th {
+    border-color: var(--border) !important;
+}
+
+/* Modal, dropdowns, menus (if any in future) */
+.dropdown-content, .modal-card, .menu, .navbar, .navbar-menu, .navbar-item, .navbar-dropdown {
+    background-color: var(--surface);
+    color: var(--text);
+    border-color: var(--border);
 }
