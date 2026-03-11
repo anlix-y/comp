@@ -9,28 +9,6 @@ import (
 	"strings"
 )
 
-func compressImage(input, output string, quality int) error {
-	ext := strings.ToLower(filepath.Ext(output))
-
-	var args []string
-
-	switch ext {
-	case ".jpg", ".jpeg":
-		args = []string{"-y", "-i", input, "-q:v", itoa(quality), output}
-	case ".png":
-		args = []string{"-y", "-i", input, "-compression_level", "9", output}
-	case ".webp":
-		args = []string{"-y", "-i", input, "-quality", itoa(quality), output}
-	default:
-		return nil
-	}
-
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 func CompressImageResize(
 	input string,
 	output string,

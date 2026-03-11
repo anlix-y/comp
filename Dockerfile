@@ -19,16 +19,15 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Install dependencies: ffmpeg, python3 (for yt-dlp), and ca-certificates
+# Install dependencies: ffmpeg, yt-dlp, nodejs (JS runtime), and ca-certificates
 RUN apk add --no-cache \
     ffmpeg \
     python3 \
+    nodejs \
+    ca-certificates \
     curl \
-    ca-certificates
-
-# Download and install yt-dlp
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
-    chmod a+rx /usr/local/bin/yt-dlp
+    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && chmod a+rwx /usr/local/bin/yt-dlp
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/compressor .
@@ -38,8 +37,8 @@ COPY --from=builder /app/web/static ./static
 COPY --from=builder /app/web/templates ./templates
 COPY --from=builder /app/web/config.json ./config.json
 
-# Create uploads directory
-RUN mkdir -p uploads && chmod 777 uploads
+# Create storage directory
+RUN mkdir -p /tmp/app && chmod 777 /tmp/app
 
 # Expose the port (should match the port in config.json)
 EXPOSE 3000

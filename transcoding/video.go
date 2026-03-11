@@ -1,6 +1,7 @@
 package transcoding
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,26 +11,71 @@ import (
 )
 
 func transcode(input, output string, args ...string) error {
+	return TranscodeWithProgress(input, output, nil, args...)
+}
+
+func TranscodeWithProgress(input, output string, progressChan chan<- float64, args ...string) error {
 	base := []string{"-y", "-i", input}
 	base = append(base, args...)
 	base = append(base, output)
 
 	cmd := exec.Command("ffmpeg", base...)
+
+	if progressChan != nil {
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+
+		// Парсим длительность и прогресс
+		go func() {
+			defer close(progressChan)
+			var duration float64
+			scanner := bufio.NewScanner(stderr)
+			scanner.Split(bufio.ScanWords)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if strings.Contains(line, "Duration:") {
+					if scanner.Scan() {
+						durationStr := strings.Trim(scanner.Text(), ",")
+						duration = parseDuration(durationStr)
+					}
+				}
+				if strings.HasPrefix(line, "time=") {
+					timeStr := strings.TrimPrefix(line, "time=")
+					currentTime := parseDuration(timeStr)
+					if duration > 0 {
+						progress := (currentTime / duration) * 100
+						if progress > 100 {
+							progress = 100
+						}
+						progressChan <- progress
+					}
+				}
+			}
+		}()
+
+		return cmd.Wait()
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-func videoToVideo(input, output string, codec string, crf int) error {
-	return transcode(
-		input,
-		output,
-		"-c:v", codec,
-		"-crf", itoa(crf),
-		"-preset", "medium",
-		"-c:a", "aac",
-		"-b:a", "128k",
-	)
+func parseDuration(timeStr string) float64 {
+	// HH:MM:SS.MS
+	parts := strings.Split(timeStr, ":")
+	if len(parts) != 3 {
+		return 0
+	}
+	h, _ := strconv.ParseFloat(parts[0], 64)
+	m, _ := strconv.ParseFloat(parts[1], 64)
+	s, _ := strconv.ParseFloat(parts[2], 64)
+	return h*3600 + m*60 + s
 }
 
 func VideoToGif(
@@ -38,15 +84,25 @@ func VideoToGif(
 	width int,
 	fps int,
 ) error {
+	return VideoToGifWithProgress(input, output, width, fps, nil)
+}
 
-	palette := "palette.png"
+func VideoToGifWithProgress(
+	input string,
+	output string,
+	width int,
+	fps int,
+	progressChan chan<- float64,
+) error {
+
+	palette := filepath.Join(filepath.Dir(output), "palette.png")
 
 	// Шаг 1 — палитра
 	cmdPal := exec.Command(
 		"ffmpeg",
 		"-y",
 		"-i", input,
-		"-vf", "fps="+itoa(fps)+",scale="+itoa(width)+":-1:flags=lanczos,palettegen",
+		"-vf", "fps="+strconv.Itoa(fps)+",scale="+strconv.Itoa(width)+":-1:flags=lanczos,palettegen",
 		palette,
 	)
 	cmdPal.Stdout = os.Stdout
@@ -56,25 +112,22 @@ func VideoToGif(
 	}
 
 	// Шаг 2 — GIF
-	cmd := exec.Command(
-		"ffmpeg",
-		"-y",
-		"-i", input,
+	return TranscodeWithProgress(input, output, progressChan,
 		"-i", palette,
 		"-lavfi",
-		"fps="+itoa(fps)+",scale="+itoa(width)+":-1:flags=lanczos[x];[x][1:v]paletteuse",
-		output,
+		"fps="+strconv.Itoa(fps)+",scale="+strconv.Itoa(width)+":-1:flags=lanczos[x];[x][1:v]paletteuse",
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
 }
 
 func VideoToAudio(input, output string, bitrate string) error {
-	return transcode(
+	return VideoToAudioWithProgress(input, output, bitrate, nil)
+}
+
+func VideoToAudioWithProgress(input, output string, bitrate string, progressChan chan<- float64) error {
+	return TranscodeWithProgress(
 		input,
 		output,
+		progressChan,
 		"-vn",
 		"-c:a", "libmp3lame",
 		"-b:a", bitrate,
@@ -106,6 +159,7 @@ func SuperCompressVideo(
 	crf int, // 28–35
 	maxWidth int, // 1920 / 1280 / 854
 	fps int, // 30 / 24 / 0 = оставить
+	progressChan chan<- float64,
 ) error {
 
 	args := []string{"-y", "-i", input}
@@ -147,11 +201,8 @@ func SuperCompressVideo(
 	args = append(args,
 		"-c:a", audioCodec,
 		"-b:a", "96k",
-		output,
+		// output добавим в TranscodeWithProgress
 	)
 
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return TranscodeWithProgress(input, output, progressChan, args[3:]...)
 }

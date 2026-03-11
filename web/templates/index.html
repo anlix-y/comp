@@ -201,10 +201,16 @@
                         const task = await res.json();
                         
                         document.getElementById('statusText').innerText = 'Статус: ' + task.status;
+                        if (task.progress > 0) {
+                            document.getElementById('progressBar').value = task.progress;
+                            document.getElementById('progressBar').innerText = task.progress + '%';
+                            document.getElementById('statusText').innerText = 'Статус: ' + task.status + ' (' + task.progress + '%)';
+                        }
                         
                         if (task.status === 'completed') {
                             clearInterval(interval);
                             submitBtn.classList.remove('is-loading');
+                            document.getElementById('progressBar').value = 100;
                             document.getElementById('statusText').innerHTML = `Готово! <a href="/uploads/${task.output_file}" class="has-text-link" target="_blank">Скачать файл</a>`;
                         } else if (task.status === 'failed') {
                             clearInterval(interval);
